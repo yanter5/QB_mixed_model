@@ -101,7 +101,7 @@ colnames(qb_aggs) = c('player', 'cmp_att_avg', 'yds_att_avg', 'tds_att_avg', 'in
 avgs <- qb_rates[-1] %>% summarize_all(mean)
 sds <- qb_rates[-1] %>% summarize_all(sd)
 
-qb_rates_c <- qb_rates
+qb_rates_c <- qb_rates #centered data
 qb_rates_c[,2] = (qb_rates[,2] - avgs[1,1])
 qb_rates_c[,3] = (qb_rates[,3] - avgs[1,2])
 qb_rates_c[,4] = (qb_rates[,4] - avgs[1,3])
@@ -114,7 +114,7 @@ qb_aggs_c[,4] = (qb_aggs[,4] - avgs[1,3])
 qb_aggs_c[,5] = (qb_aggs[,5] - avgs[1,4])
 
 
-qb_rates_s <- qb_rates
+qb_rates_s <- qb_rates #standardized data
 qb_rates_s[,2] = (qb_rates[,2] - avgs[1,1])/sds[1,1]
 qb_rates_s[,3] = (qb_rates[,3] - avgs[1,2])/sds[1,2]
 qb_rates_s[,4] = (qb_rates[,4] - avgs[1,3]) /sds[1,3]
@@ -126,8 +126,6 @@ qb_aggs_s[,3] = (qb_aggs[,3] - avgs[1,2])/sds[1,2]
 qb_aggs_s[,4] = (qb_aggs[,4] - avgs[1,3]) /sds[1,3]
 qb_aggs_s[,5] = (qb_aggs[,5] - avgs[1,4]) /sds[1,4]
 
-centered_cors <- cor(qb_rates_c[,c(2, 3, 4, 5, 6)])
-corrplot(centered_cors)
 
 plot(qb_aggs$win_pct, xlab = 'Player', ylab='Win Percentage')
 text(c(1:7), qb_aggs$win_pct[1:7], qb_list[1:7], pos=4)
@@ -143,32 +141,31 @@ qb_rates_s$player = factor(qb_rates_s$player)
 qb_final_c <- merge(qb_rates_c, qb_aggs_c)
 qb_final_s <- merge(qb_rates_s, qb_aggs_s)
 
-model1 <- glm(result~player, data=qb_final_s) 
+model1 <- glm(result~player, data=qb_final_s) #anova
 summary(model1)
 
-
-model2 <- glmer(result~1+(1|player), data = qb_final_s, family = 'binomial') #done
+model2 <- glmer(result~1+(1|player), data = qb_final_s, family = 'binomial') #random intercepts
 summary(model2)
 
-model3 <- glmer(result~(1|player) + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial') #done
+model3 <- glmer(result~(1|player) + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial') #add lvl 1 fixed effects
 anova(model2, model3)
 summary(model3)
 
-model4 <- glmer(result~ (1|player) + yds_att_avg + tds_att_avg + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial') #finished
+model4 <- glmer(result~ (1|player) + yds_att_avg + tds_att_avg + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial') #add lvl 2 effects
 anova(model3, model4)
 summary(model4)
 
-model5 <- glmer(result~ (1+int_att|player) +yds_att_avg + tds_att_avg + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial')
+model5 <- glmer(result~ (1+int_att|player) +yds_att_avg + tds_att_avg + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial') #add random slopes
 anova(model5, model4)
 summary(model5)
 
-model6 <- glmer(result~ yds_att*int_att_avg+(1+int_att|player) +yds_att_avg + tds_att_avg + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial') #finished
+model6 <- glmer(result~ yds_att*int_att_avg+(1+int_att|player) +yds_att_avg + tds_att_avg + yds_att + tds_att + int_att, data = qb_final_s, family = 'binomial') #add cross-level interaction
 anova(model5, model6)
 #Figure 1
 summary(model6)
 
-slopes= ranef(model6)$player[,2]
-intercepts = ranef(model6)$player[,1]
+slopes= ranef(model6)$player[,2] #slope coeffcients for each player
+intercepts = ranef(model6)$player[,1] #intercept coeffcients for each player
 
 sjstats::icc(model6) # ICC
 
